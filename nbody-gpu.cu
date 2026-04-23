@@ -115,7 +115,7 @@ __global__ void kernel_compute_forces(
         __syncthreads();
 
         if (i < n) {
-            size_t tile_end = min(blockDim.x, n - tile * blockDim.x);
+            size_t tile_end = min((size_t)blockDim.x, n - tile * blockDim.x);
             for (size_t k = 0; k < tile_end; ++k) {
                 size_t src = tile * blockDim.x + k;
                 if (src == i) continue;
