@@ -7,7 +7,7 @@ TARGET      := nbody-gpu
 all: $(TARGET)
 
 $(TARGET): nbody-gpu.cu
-	$(NVCC) $(NVCCFLAGS) -o $@ $
+	$(NVCC) $(NVCCFLAGS) -o $@ $<
 
 test: $(TARGET)
 	./$(TARGET) 1024 0.01 500 100
