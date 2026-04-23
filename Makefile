@@ -17,4 +17,3 @@ solar: $(TARGET)
 
 clean:
 	rm -f $(TARGET) log.tsv
-EOF
