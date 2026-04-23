@@ -1,12 +1,12 @@
 NVCC        := nvcc
 NVCCFLAGS   := -O3 -arch=sm_61 --use_fast_math -std=c++17
-TARGET      := nbody_cuda
+TARGET      := nbody-gpu
 
 .PHONY: all clean
 
 all: $(TARGET)
 
-$(TARGET): nbody.cu
+$(TARGET): nbody-gpu.cpp
 	$(NVCC) $(NVCCFLAGS) -o $@ $
 
 test: $(TARGET)
