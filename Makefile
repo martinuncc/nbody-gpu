@@ -1,17 +1,19 @@
-CXXFLAGS=-O3
+NVCC        := nvcc
+NVCCFLAGS   := -O3 -arch=sm_61 --use_fast_math -std=c++17
+TARGET      := nbody_cuda
 
-nbody-gpu: nbody-gpu.cpp
-	g++ -O3 nbody-gpu.cpp -o nbody-gpu
+.PHONY: all clean
 
-solar.out: nbody-gpu
-	date
-	./nbody-gpu planet 200 5000000 10000 > solar.out # maybe a minutes
-	date
+all: $(TARGET)
 
-solar.pdf: solar.out
-	python3 plot.py solar.out solar.pdf 1000 
+$(TARGET): nbody.cu
+	$(NVCC) $(NVCCFLAGS) -o $@ $
 
-random.out: nbody-gpu
-	date
-	./nbody-gpu 1000 1 10000 100 > random.out # maybe 5 minutes
-	date
+test: $(TARGET)
+	./$(TARGET) 1024 0.01 500 100
+
+solar: $(TARGET)
+	./$(TARGET) planet 3600 8760 876
+
+clean:
+	rm -f $(TARGET) log.tsv
