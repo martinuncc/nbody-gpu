@@ -6,8 +6,8 @@ TARGET      := nbody-gpu
 
 all: $(TARGET)
 
-$(TARGET): nbody-gpu.cpp
-	$(NVCC) $(NVCCFLAGS) -o $@ $<
+$(TARGET): nbody-gpu.cu
+	$(NVCC) $(NVCCFLAGS) -o $@ $
 
 test: $(TARGET)
 	./$(TARGET) 1024 0.01 500 100
@@ -17,3 +17,4 @@ solar: $(TARGET)
 
 clean:
 	rm -f $(TARGET) log.tsv
+EOF
