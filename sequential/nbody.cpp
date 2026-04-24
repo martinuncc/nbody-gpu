@@ -213,8 +213,8 @@ int main(int argc, char *argv[])
         << "a filename (load from file in singleline tsv)" << "\n";
     return -1;
   }
-
-  std::ofstream logFile("log.tsv");
+  std::string filename = "log " + std::string(argv[1]) + "<n> .txt";
+  std::ofstream logFile(filename);
   if (!logFile.is_open())
   {
     std::cerr << "Failed to open log file." << std::endl;
