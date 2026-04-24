@@ -31,6 +31,7 @@ struct DevBuffers {
     double *fx = nullptr, *fy = nullptr, *fz = nullptr;
     size_t n = 0;
 
+    // allocate device memory
     void allocate(size_t nb) {
         n = nb;
         size_t bytes = nb * sizeof(double);
@@ -40,6 +41,7 @@ struct DevBuffers {
         cudaMalloc(&fx,   bytes); cudaMalloc(&fy,   bytes); cudaMalloc(&fz,   bytes);
     }
 
+    // free device memory
     void free_all() {
         cudaFree(mass);
         cudaFree(x);  cudaFree(y);  cudaFree(z);
@@ -47,6 +49,7 @@ struct DevBuffers {
         cudaFree(fx); cudaFree(fy); cudaFree(fz);
     }
 
+    // copy to gpu
     void upload(const Simulation &s) {
         size_t bytes = n * sizeof(double);
         cudaMemcpy(mass, s.mass.data(), bytes, cudaMemcpyHostToDevice);
@@ -61,6 +64,7 @@ struct DevBuffers {
         cudaMemcpy(fz, s.fz.data(), bytes, cudaMemcpyHostToDevice);
     }
 
+    // copy back to cpu
     void download(Simulation &s) const {
         size_t bytes = n * sizeof(double);
         cudaMemcpy(s.x.data(),  x,  bytes, cudaMemcpyDeviceToHost);
@@ -75,7 +79,7 @@ struct DevBuffers {
     }
 };
 
-__global__ void kernel_reset_force(double *fx, double *fy, double *fz, size_t n)
+__global__ void gpu_reset_force(double *fx, double *fy, double *fz, size_t n)
 {
     size_t i = blockIdx.x * blockDim.x + threadIdx.x;
     if (i >= n) return;
@@ -84,7 +88,7 @@ __global__ void kernel_reset_force(double *fx, double *fy, double *fz, size_t n)
     fz[i] = 0.0;
 }
 
-__global__ void kernel_compute_forces(
+__global__ void gpu_compute_forces(
     const double * __restrict__ mass,
     const double * __restrict__ px, const double * __restrict__ py, const double * __restrict__ pz,
           double * __restrict__ fx,       double * __restrict__ fy,       double * __restrict__ fz,
@@ -183,7 +187,7 @@ void random_init(Simulation &s)
 
 void init_solar(Simulation &s)
 {
-    enum Planets { SUN,MERCURY,VENUS,EARTH,MARS,JUPITER,SATURN,URANUS,NEPTUNE,MOON };
+    enum Planets {SUN, MERCURY, VENUS, EARTH, MARS, JUPITER, SATURN, URANUS, NEPTUNE, MOON};
     s = Simulation(10);
 
     s.mass[SUN]     = 1.9891e30;
@@ -256,8 +260,8 @@ int main(int argc, char *argv[])
     std::ofstream logFile("log.tsv");
     if (!logFile.is_open()) { std::cerr << "Failed to open log.tsv\n"; return EXIT_FAILURE; }
 
-    const double dt         = std::atof(argv[2]);
-    const size_t nbstep     = std::atol(argv[3]);
+    const double dt = std::atof(argv[2]);
+    const size_t nbstep = std::atol(argv[3]);
     const size_t printevery = std::atol(argv[4]);
 
     Simulation s(1);
@@ -272,7 +276,7 @@ int main(int argc, char *argv[])
     }
 
     constexpr int BLOCK = 256;
-    int    grid       = static_cast<int>((s.n + BLOCK - 1) / BLOCK);
+    int grid = static_cast<int>((s.n + BLOCK - 1) / BLOCK);
     size_t smem_bytes = 4 * BLOCK * sizeof(double);
 
     DevBuffers dev;
@@ -285,7 +289,7 @@ int main(int argc, char *argv[])
         std::cout << "GPU: " << prop.name << "  SMs=" << prop.multiProcessorCount << '\n';
     }
 
-    auto t_start = std::chrono::high_resolution_clock::now();
+    auto start = std::chrono::high_resolution_clock::now();
 
     for (size_t step = 0; step < nbstep; ++step) {
         if (step % printevery == 0) {
@@ -293,9 +297,9 @@ int main(int argc, char *argv[])
             dump_state(s, logFile);
         }
 
-        kernel_reset_force<<<grid, BLOCK>>>(dev.fx, dev.fy, dev.fz, s.n);
+        gpu_reset_force<<<grid, BLOCK>>>(dev.fx, dev.fy, dev.fz, s.n);
 
-        kernel_compute_forces<<<grid, BLOCK, smem_bytes>>>(
+        gpu_compute_forces<<<grid, BLOCK, smem_bytes>>>(
             dev.mass,
             dev.x,  dev.y,  dev.z,
             dev.fx, dev.fy, dev.fz,
@@ -311,11 +315,12 @@ int main(int argc, char *argv[])
 
     CUDA_CHECK(cudaDeviceSynchronize());
 
-    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(
-        std::chrono::high_resolution_clock::now() - t_start);
+    auto end = std::chrono::high_resolution_clock::now();
 
-    std::cout << "Simulation took " << duration.count() << " microseconds.\n";
-    logFile   << "Simulation took " << duration.count() << " microseconds.\n";
+    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+
+    std::cout << "Simulation took " << duration.count() << " microseconds." << std::endl;
+    logFile << "duration\t" << duration.count() << " microseconds\n";
 
     dev.free_all();
     logFile.close();
